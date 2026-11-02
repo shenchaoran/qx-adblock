@@ -5,6 +5,7 @@
   python3 tools/build.py sync                    # 按 pins 拉取上游快照到 upstream/，记录 sha256
   python3 tools/build.py audit                   # 审计将被收录的脚本（含 custom/）
   python3 tools/build.py assets                  # 生成 scripts/ 与 filter/
+  python3 tools/build.py docs                    # 生成 docs/RULES.md（分流 / 重写 / MitM 的逐项说明）
   python3 tools/build.py rewrites --asset-ref SHA
   python3 tools/build.py profile  --asset-ref SHA --rewrite-ref SHA
 
@@ -26,10 +27,26 @@ ROOT = Path(__file__).resolve().parent.parent
 UP = ROOT / "upstream"
 SOURCES = json.loads((ROOT / "sources.json").read_text(encoding="utf-8"))
 POLICY = json.loads((ROOT / "policy" / "policy.json").read_text(encoding="utf-8"))
-DENY = [l.strip() for l in (ROOT / "policy" / "mitm-deny.txt").read_text(encoding="utf-8").splitlines()
-        if l.strip() and not l.lstrip().startswith("#")]
-# 证书锁定、MitM 后会断网的 App（沿用原配置）
-PINNING_EXCLUDES = ["testflight.apple.com", "*.fcbox.com", "*huami.com", "*amemv.com", "*snssdk.com", "www.google.com"]
+
+
+def load_deny():
+    """policy/mitm-deny.txt -> [(域名模式, App 或服务名, 分组)]。"""
+    items, group = [], ""
+    for raw in (ROOT / "policy" / "mitm-deny.txt").read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        m = re.match(r"^#\s*----\s*(.+?)\s*----\s*$", line)
+        if m:
+            group = m.group(1)
+            continue
+        if not line or line.startswith("#"):
+            continue
+        pat, _, name = line.partition("#")
+        items.append((pat.strip(), name.strip(), group))
+    return items
+
+
+DENY_ITEMS = load_deny()
+DENY = [p for p, _, _ in DENY_ITEMS]
 
 SCRIPT_ACTIONS = ("script-response-body", "script-request-body", "script-response-header",
                   "script-request-header", "script-echo-response", "script-analyze-echo-response")
@@ -154,10 +171,48 @@ def script_output_name(key):
     return key.rsplit(":", 1)[1].rsplit("/", 1)[-1]
 
 
+ACTION_TEXT = {
+    "reject": "断开连接", "reject-200": "返回空响应", "reject-dict": "返回空对象 {}", "reject-img": "返回空图片",
+    "script-response-body": "脚本改写响应", "script-request-body": "脚本改写请求体",
+    "script-response-header": "脚本改写响应头", "script-request-header": "脚本改写请求头",
+    "jsonjq-response-body": "删除 / 改写 JSON 字段", "response-body": "文本替换响应体", "request-body": "文本替换请求体",
+}
+
+
+def rule_action(line):
+    m = re.search(r" url (\S+)", line)
+    return m.group(1) if m else ""
+
+
+def rule_note(line, label):
+    """一条规则的作用说明：优先用 policy.json 的 rule_notes，其次取上游注释里的中文描述。"""
+    left = line.split(" url ", 1)[0].replace("\\", "")
+    for n in POLICY.get("rule_notes", []):
+        if n["match"] in left:
+            return n["note"]
+    if label:
+        t = re.sub(r"@.*$", "", label[3:].strip()).strip()
+        if "_" in t:
+            t = t.split("_", 1)[1]
+        if re.search(r"[\u4e00-\u9fff]", t):
+            return t
+    return ""
+
+
+def rewrite_cfg(rid):
+    return POLICY["rewrites"].get(rid, {})
+
+
+def host_app(rid, host):
+    cfg = rewrite_cfg(rid)
+    return cfg.get("host_apps", {}).get(host) or cfg.get("app", "")
+
+
 # ---------------------------------------------------------------- 解析重写
 
 def parse_rewrite(src):
-    """返回 (规则列表, hostname 列表, 内嵌分流行, 统计)。规则为 (说明注释, 规则行, 脚本键或 None)。"""
+    """返回 (规则列表, hostname 列表, 内嵌分流行, 统计)。
+    规则为 (上游注释, 规则行, 脚本键或 None, App 名)；分流行为 (类型, 值, 策略, 重写 id)。"""
     rid = src["id"]
     text = read_snapshot(src["from"])
     cfg = POLICY["rewrites"].get(rid, {})
@@ -185,7 +240,7 @@ def parse_rewrite(src):
         if head in FILTER_TYPES and "," in line:
             parts = [x.strip() for x in line.split(",")]
             if len(parts) >= 3 and parts[2].lower() in ("direct", "reject") and app_of(line, cfg) is not None:
-                filters.append((parts[0].lower(), parts[1], parts[2].lower()))
+                filters.append((parts[0].lower(), parts[1], parts[2].lower(), rid))
             continue
         if " url " not in f" {line} ":
             continue
@@ -218,7 +273,7 @@ def parse_rewrite(src):
                 continue
         if app:
             stats["apps"][app] = stats["apps"].get(app, 0) + 1
-        rules.append((label, line, skey))
+        rules.append((label, line, skey, app or cfg.get("app", "")))
         label = None
 
     if "hostname" in cfg:
@@ -278,7 +333,7 @@ def cmd_sync(_):
     global STRICT
     STRICT = False
     for src in SOURCES["rewrites"]:
-        for _, _, skey in parse_rewrite(src)[0]:
+        for _, _, skey, _app in parse_rewrite(src)[0]:
             entry = POLICY["scripts"].get(skey) if skey else None
             if entry and entry["action"] in ("keep", "replace") and skey not in lock:
                 save(skey)
@@ -294,7 +349,7 @@ def cmd_sync(_):
 def kept_script_keys():
     keys = set()
     for src in SOURCES["rewrites"]:
-        for _, _, skey in parse_rewrite(src)[0]:
+        for _, _, skey, _app in parse_rewrite(src)[0]:
             if skey:
                 keys.add(skey)
     return keys
@@ -337,13 +392,16 @@ def cmd_assets(_):
     if fdir.exists():
         shutil.rmtree(fdir)
     fdir.mkdir()
-    allow, block = [], []
     skipped_private = []
     for src in SOURCES["filters"]:
         text = read_snapshot(src["from"])
-        rows = []
+        rows, n = [], 0
         for raw in text.splitlines():
             line = raw.strip()
+            if line.startswith("# >"):                      # 保留上游的分组注释，并译成中文
+                g = line[3:].strip()
+                rows.append("# " + POLICY.get("group_names", {}).get(g, g))
+                continue
             if not line or line.startswith(("#", ";", "//")):
                 continue
             parts = [x.strip() for x in line.split(",")]
@@ -359,22 +417,32 @@ def cmd_assets(_):
                     skipped_private.append(parts[1])   # 清单里混入的内网段，拦截会误伤局域网
                     continue
                 rows.append(f"{typ}, {parts[1]}, {src['policy']}, no-resolve")
-                continue
-            rows.append(f"{typ}, {parts[1]}, {src['policy']}")
-        (fdir / f"{src['id']}.list").write_text(
-            f"# {src['tag']}：来自 {src['from']}，共 {len(rows)} 条，策略统一为 {src['policy']}\n" + "\n".join(rows) + "\n",
-            encoding="utf-8")
-        print(f"  filter/{src['id']}.list  {len(rows)} 条")
+            else:
+                rows.append(f"{typ}, {parts[1]}, {src['policy']}")
+            n += 1
+        head = [f"# {src['tag']}：{src.get('desc', '')}", f"# 来源 {src['from']}，共 {n} 条，策略统一为 {src['policy']}"]
+        (fdir / f"{src['id']}.list").write_text("\n".join(head + rows) + "\n", encoding="utf-8")
+        print(f"  filter/{src['id']}.list  {n} 条")
     if skipped_private:
         print(f"  已忽略清单中的内网/保留地址段：{', '.join(skipped_private)}")
+
+    groups = {"direct": {}, "reject": {}}
     for src in SOURCES["rewrites"]:
-        for typ, val, pol in parse_rewrite(src)[2]:
-            (allow if pol == "direct" else block).append(f"{typ}, {val}, {pol}")
-    for name, rows, desc in (("RewriteAllow", allow, "重写作者要求直连的域名"),
-                             ("RewriteBlock", block, "重写作者要求拦截的域名")):
-        rows = list(dict.fromkeys(rows))
-        (fdir / f"{name}.list").write_text(f"# {desc}（从重写文件中提取）\n" + "\n".join(rows) + "\n", encoding="utf-8")
-        print(f"  filter/{name}.list  {len(rows)} 条")
+        for typ, val, pol, rid in parse_rewrite(src)[2]:
+            app = rewrite_cfg(rid).get("app") or src["tag"]
+            groups[pol].setdefault(app, [])
+            row = f"{typ}, {val}, {pol}"
+            if row not in groups[pol][app]:
+                groups[pol][app].append(row)
+    for name, pol, desc in (("RewriteAllow", "direct", "重写作者要求直连的域名"),
+                            ("RewriteBlock", "reject", "重写作者要求拦截的域名")):
+        n = sum(len(v) for v in groups[pol].values())
+        lines = [f"# {desc}（从重写文件中提取，按 App 分组），共 {n} 条"]
+        for app, rows in groups[pol].items():
+            lines.append(f"# {app}")
+            lines += rows
+        (fdir / f"{name}.list").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        print(f"  filter/{name}.list  {n} 条")
     print(f"  scripts/  {len(names)} 个脚本")
 
 
@@ -385,9 +453,12 @@ def cmd_rewrites(args):
     out.mkdir()
     lock = json.loads((UP / "LOCK.json").read_text(encoding="utf-8"))
     for src in SOURCES["rewrites"]:
+        rid = src["id"]
         rules, hosts, _, st = parse_rewrite(src)
+        apps = list(dict.fromkeys(a for _, _, _, a in rules if a))
         body = [
             f"# {src['tag']}：去广告重写（由 tools/build.py 生成，请勿手改）",
+            f"# 作用的 App：{'、'.join(apps)}",
             f"# 上游：{lock[src['from']]['url']}",
             f"# 上游 sha256：{lock[src['from']]['sha256']}",
             f"# 收录规则 {len(rules)} 条；不在 App 白名单内删除 {st['dropped_app']} 条，按策略删除 {st['dropped_policy']} 条，"
@@ -395,56 +466,288 @@ def cmd_rewrites(args):
         ]
         if st["apps"]:
             body.append("# 按 App 收录：" + "、".join(f"{a} {n} 条" for a, n in st["apps"].items()))
+        body.append(f"# 会被解密（MitM）的域名 → App，共 {len(hosts)} 个：")
+        for h in hosts:
+            body.append(f"#   {h}  →  {host_app(rid, h) or '（未标注）'}")
         if st["hosts_removed"]:
             body.append(f"# 从 hostname 剔除 {len(st['hosts_removed'])} 个：" + ", ".join(st["hosts_removed"]))
         # 校验：规则里的 https 域名必须在 hostname 里，否则 QX 不解密、规则永远不生效
-        for _, line, _s in rules:
+        for _l, line, _s, _a in rules:
             h = rule_host(line)
             if h and line.lstrip("^").startswith("https") and not any(fnmatch.fnmatch(h, p) for p in hosts):
-                print(f"  警告：{src['id']} 的规则域名 {h} 不在 hostname 里，这条规则不会生效", file=sys.stderr)
+                print(f"  警告：{rid} 的规则域名 {h} 不在 hostname 里，这条规则不会生效", file=sys.stderr)
         body += ["", "hostname = " + ", ".join(hosts), ""]
-        for label, line, skey in rules:
+        for label, line, skey, app in rules:
+            note = rule_note(line, label)
+            head = "：".join(x for x in (app, note) if x)
             if skey:
                 tail = line.split()[-1]
                 line = line[: len(line) - len(tail)] + cdn_url(args.asset_ref, "scripts/" + script_output_name(skey))
-            if label:
-                body.append(label)
+            if head:
+                body.append(f"# > {head}")
             body.append(line)
-        (out / f"{src['id']}.conf").write_text("\n".join(body) + "\n", encoding="utf-8")
-        print(f"  rewrite/{src['id']}.conf  规则 {len(rules)}  hostname {len(hosts)}")
+        (out / f"{rid}.conf").write_text("\n".join(body) + "\n", encoding="utf-8")
+        print(f"  rewrite/{rid}.conf  规则 {len(rules)}  hostname {len(hosts)}")
+
+
+def list_count(name):
+    p = ROOT / "filter" / f"{name}.list"
+    if not p.exists():
+        return 0
+    return sum(1 for l in p.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#"))
+
+
+def list_apps(name):
+    """RewriteAllow / RewriteBlock 里按 App 分组的组名。"""
+    p = ROOT / "filter" / f"{name}.list"
+    if not p.exists():
+        return ""
+    return "、".join(l[2:].strip() for l in p.read_text(encoding="utf-8").splitlines()[1:] if l.startswith("# "))
+
+
+def mitm_comment():
+    """[mitm] 里 hostname 一行的逐项说明：先排除，后作用。"""
+    L = ["# hostname 由两部分合成（QX 要求写在同一行，所以说明放在这里）：",
+         f"#   一、排除（'-' 前缀）：共 {len(DENY_ITEMS)} 项，这些域名永远不解密。分组与对应 App 如下。",
+         "#   二、作用：本行不直接写，由各重写文件自带的 hostname 合并进来，见本段末尾。"]
+    group = None
+    for pat, name, g in DENY_ITEMS:
+        if g != group:
+            L.append(f"# ---- 排除：{g} ----")
+            group = g
+        L.append(f"#   -{pat:<26} {name}")
+    L.append("# ---- 作用：以下域名会被解密，用来改写广告（来自各重写文件）----")
+    for src in SOURCES["rewrites"]:
+        for h in parse_rewrite(src)[1]:
+            L.append(f"#   {h:<34} {host_app(src['id'], h) or src['tag']}")
+    return "\n".join(L)
 
 
 def cmd_profile(args):
     a, r = args.asset_ref, args.rewrite_ref
-    filters = [
-        f"{cdn_url(a, 'filter/RewriteAllow.list')}, tag=重写附带直连, force-policy=direct, update-interval=604800, opt-parser=false, enabled=true",
-    ]
+    entries = [(
+        "direct",
+        [f"# 重写文件附带的直连域名，共 {list_count('RewriteAllow')} 条，涉及：{list_apps('RewriteAllow')}"],
+        f"{cdn_url(a, 'filter/RewriteAllow.list')}, tag=重写附带直连, force-policy=direct, update-interval=604800, opt-parser=false, enabled=true")]
     for src in SOURCES["filters"]:
-        filters.append(f"{cdn_url(a, 'filter/' + src['id'] + '.list')}, tag={src['tag']}, force-policy={src['policy']}, "
-                       f"update-interval=604800, opt-parser=false, enabled=true")
-    filters.append(f"{cdn_url(a, 'filter/RewriteBlock.list')}, tag=重写附带拦截, force-policy=reject, update-interval=604800, opt-parser=false, enabled=true")
-    # 直连类必须排在拦截类之前
-    filters.sort(key=lambda l: 0 if "force-policy=direct" in l else 1)
-    rewrites = [f"{cdn_url(r, 'rewrite/' + s['id'] + '.conf')}, tag={s['tag']}, update-interval=604800, opt-parser=false, enabled=true"
-                for s in SOURCES["rewrites"]]
+        entries.append((src["policy"],
+                        [f"# {src['tag']}：{src.get('desc', '')}（{list_count(src['id'])} 条，{src['policy']}）"],
+                        f"{cdn_url(a, 'filter/' + src['id'] + '.list')}, tag={src['tag']}, force-policy={src['policy']}, "
+                        f"update-interval=604800, opt-parser=false, enabled=true"))
+    entries.append((
+        "reject",
+        [f"# 重写文件附带的拦截域名，共 {list_count('RewriteBlock')} 条，涉及：{list_apps('RewriteBlock')}"],
+        f"{cdn_url(a, 'filter/RewriteBlock.list')}, tag=重写附带拦截, force-policy=reject, update-interval=604800, opt-parser=false, enabled=true"))
+    entries.sort(key=lambda e: 0 if e[0] == "direct" else 1)     # 直连类必须排在拦截类之前
+    filters = []
+    for _pol, comments, line in entries:
+        filters += comments + [line]
+
+    rewrites = []
+    for s in SOURCES["rewrites"]:
+        rules, hosts, _, _st = parse_rewrite(s)
+        apps = "、".join(dict.fromkeys(x for _, _, _, x in rules if x))
+        rewrites.append(f"# {s['tag']}：{apps}；{len(rules)} 条规则，解密 {len(hosts)} 个域名")
+        rewrites.append(f"{cdn_url(r, 'rewrite/' + s['id'] + '.conf')}, tag={s['tag']}, update-interval=604800, opt-parser=false, enabled=true")
+
     deny = []
     for p in DENY:
         deny.append("-" + p)
         if p.startswith("*."):
             deny.append("-" + p[2:])
-    mitm = ", ".join("-" + p for p in PINNING_EXCLUDES) + ", " + ", ".join(dict.fromkeys(deny))
+    mitm = ", ".join(dict.fromkeys(deny))
     tpl = (ROOT / "profile.template.conf").read_text(encoding="utf-8")
     conf = (tpl.replace("{{REPO}}", SOURCES["repo"]).replace("{{ASSET_REF}}", a).replace("{{REWRITE_REF}}", r)
             .replace("{{FILTER_REMOTE}}", "\n".join(filters)).replace("{{REWRITE_REMOTE}}", "\n".join(rewrites))
-            .replace("{{MITM_HOSTNAME}}", mitm))
+            .replace("{{MITM_COMMENT}}", mitm_comment()).replace("{{MITM_HOSTNAME}}", mitm))
     (ROOT / "QuantumultX.conf").write_text(conf, encoding="utf-8")
     print("  QuantumultX.conf")
+
+
+# ---------------------------------------------------------------- 文档
+
+VENDORS = [   # 按域名关键字粗分，仅用于 docs，顺序即优先级
+    ("字节跳动（穿山甲 / 巨量引擎）", ["pangle", "pangolin", "snssdk", "toutiao", "bytedance", "bytecdn", "byteimg", "ixigua", "douyin", "pstatp", "volcengine", "zijieapi", "oceanengine", "amemv", "tiktok", "musical.ly"]),
+    ("腾讯（广点通 / 统计）", ["gdt.qq", ".qq.com", "gtimg", "qpic", "tencent", "qcloud", "weixin", "wechat", "tencentmusic"]),
+    ("百度（联盟 / 统计）", ["baidu", "bdstatic", "bdimg", "bcebos", "bdtj"]),
+    ("阿里（阿里妈妈 / 友盟 / 统计）", ["alimama", "umeng", "alicdn", "aliyun", "mmstat", "taobao", "tanx", "youku", "alipay", "cnzz", "alibaba", "umsns", "umtrack", ".uc.cn"]),
+    ("快手联盟", ["kuaishou", "gifshow", "yximgs", "ksapisrv", "kwai"]),
+    ("新浪 / 微博", ["sina", "weibo"]),
+    ("手机厂商（小米 / 华为 / OPPO / vivo）", ["miui", "xiaomi", ".mi.com", "hicloud", "huawei", "hihonor", "oppo", "heytap", "vivo"]),
+    ("京东 / 美团 / 网易 / 360 / 搜狗", [".jd.com", "360buy", "meituan", ".163.com", "netease", "youdao", ".360.cn", ".360.com", "qihoo", "sogou", ".so.com"]),
+    ("海外广告与统计（Google / Meta / Unity / AppsFlyer 等）", ["google", "doubleclick", "facebook", "fbcdn", "admob", "unity", "applovin", "appsflyer", "adjust", "criteo", "taboola", "outbrain", "amazon", "adcolony", "vungle", "ironsrc", "mopub", "inmobi", "chartboost", "smaato", "pubmatic", "rubicon", "openx", "adnxs", "yandex", "mintegral", "adsense", "analytics", "twitter", "branch.io", "flurry", "crashlytics"]),
+]
+
+
+def classify(value):
+    v = value.lower()
+    for name, keys in VENDORS:
+        for k in keys:
+            if (v == k[1:] or v.endswith(k)) if k.startswith(".") else (k in v):
+                return name
+    return "其他（小型广告 / 统计 / 垃圾站点）"
+
+
+def cmd_docs(_):
+    W = []
+    w = W.append
+    w("# 规则说明")
+    w("")
+    w("> 由 `python3 tools/build.py docs` 生成，请勿手改。内容与 `QuantumultX.conf`、`rewrite/*.conf` 里的注释一一对应。")
+    w("")
+    w("## 0. 运行模式")
+    w("")
+    w("| 运行模式 | 分流（下面第 1 节的黑名单） | 重写 + MitM（第 2、3 节） |")
+    w("|---|---|---|")
+    w("| **规则分流（推荐）** | 生效 | 生效 |")
+    w("| 全部直连 | **不生效**（教程原文：必须切到规则分流，分流规则才会生效） | 间接证据显示仍然生效，但没有官方说明，需在手机上自己验证 |")
+    w("")
+    w("你不用翻墙，不代表用不到「分流」：这里的分流不是在选线路，而是一份**广告域名黑名单**。")
+    w("淘宝、京东、拼多多、美团、QQ 音乐、哈啰、一嗨租车这些 App 没有解密，去广告全靠它。切到全部直连，它们就一点都拦不住了。")
+    w("规则分流模式下 `final, direct` 让所有未命中的流量照常直连，速度与全部直连基本一样。")
+    w("")
+
+    # ---- 分流
+    w("## 1. 分流（filter_remote）")
+    w("")
+    w("| 列表 | 作用 | 条数 | 策略 |")
+    w("|---|---|---|---|")
+    w(f"| 重写附带直连 | 重写文件里要求直连的域名 | {list_count('RewriteAllow')} | direct |")
+    for src in SOURCES["filters"]:
+        w(f"| {src['tag']} | {src.get('desc', '')} | {list_count(src['id'])} | {src['policy']} |")
+    w(f"| 重写附带拦截 | 重写文件里要求拦截的域名 | {list_count('RewriteBlock')} | reject |")
+    w("")
+    w("顺序有意义：直连类排在拦截类之前，所以「误杀修正」能把被黑名单误拦的域名放行。")
+    w("")
+
+    sec = 0
+    for src in SOURCES["filters"]:
+        path = ROOT / "filter" / f"{src['id']}.list"
+        if not path.exists():
+            continue
+        sec += 1
+        lines = path.read_text(encoding="utf-8").splitlines()
+        data = [l for l in lines if l.strip() and not l.startswith("#")]
+        if src["policy"] == "reject":
+            w(f"### 1.{sec} 为什么有 {len(data)} 条：{src['tag']}")
+            w("")
+            w("这是一份别人维护的广告域名黑名单，覆盖**所有 App** 里常见的广告 SDK、统计和追踪域名，不是针对你列的某几个 App。")
+            w("按域名关键字粗分如下（仅供参考，一条只归一类）：")
+            w("")
+            kinds, vend = {}, {}
+            for l in data:
+                typ, val = [x.strip() for x in l.split(",")[:2]]
+                kinds[typ] = kinds.get(typ, 0) + 1
+                v = "IP 段" if typ in ("ip-cidr", "ip6-cidr") else classify(val)
+                vend[v] = vend.get(v, 0) + 1
+            w("| 归属 | 条数 |")
+            w("|---|---|")
+            for k, n in sorted(vend.items(), key=lambda x: -x[1]):
+                w(f"| {k} | {n} |")
+            w("")
+            w("按类型：" + "、".join(f"{k} {n}" for k, n in sorted(kinds.items(), key=lambda x: -x[1])))
+            w("")
+            other = vend.get("其他（小型广告 / 统计 / 垃圾站点）", 0)
+            w(f"其中约 {round(100 * other / len(data))}% 属于最后一类：成千上万个只被少数 App 或网站使用的小型广告、统计和垃圾站点域名。"
+              "数量多是因为广告生态本身就很碎片化，不代表你用到了这么多 App。")
+            w("")
+        else:
+            w(f"### 1.{sec} {src['tag']}")
+            w("")
+            w(src.get("desc", ""))
+            w("")
+            groups, cur = {}, "其他"
+            for l in lines:
+                if l.startswith("# ") and not l.startswith(("# " + src["tag"], "# 来源")):
+                    cur = l[2:].strip()
+                elif l.strip() and not l.startswith("#"):
+                    groups.setdefault(cur, []).append(l.split(",")[1].strip())
+            w("| 归属 | 域名 |")
+            w("|---|---|")
+            for g, vs in groups.items():
+                w(f"| {g} | {'、'.join(vs)} |")
+            w("")
+
+    for name, title in (("RewriteAllow", "重写附带直连"), ("RewriteBlock", "重写附带拦截")):
+        path = ROOT / "filter" / f"{name}.list"
+        if not path.exists():
+            continue
+        sec += 1
+        w(f"### 1.{sec} {title}")
+        w("")
+        w("| App | 类型 | 域名 |")
+        w("|---|---|---|")
+        cur = ""
+        for l in path.read_text(encoding="utf-8").splitlines()[1:]:
+            if l.startswith("# "):
+                cur = l[2:].strip()
+            elif l.strip():
+                typ, val = [x.strip() for x in l.split(",")[:2]]
+                w(f"| {cur} | {typ} | {val} |")
+        w("")
+
+    # ---- 重写
+    w("## 2. 重写（rewrite_remote）")
+    w("")
+    w("重写只对第 3 节列出的、被解密的域名生效。动作含义：返回空响应 = 直接回一个空的 200；返回空对象 = 回 `{}`；断开连接 = 直接拒绝。")
+    w("")
+    for src in SOURCES["rewrites"]:
+        rid = src["id"]
+        rules, hosts, _, st = parse_rewrite(src)
+        apps = "、".join(dict.fromkeys(a for _, _, _, a in rules if a))
+        w(f"### 2.{SOURCES['rewrites'].index(src) + 1} {src['tag']}（`rewrite/{rid}.conf`）")
+        w("")
+        w(f"作用的 App：{apps}；{len(rules)} 条规则；解密 {len(hosts)} 个域名。")
+        w("")
+        w("| App | 作用 | 动作 | 匹配（已省略协议头，缩略） |")
+        w("|---|---|---|---|")
+        for label, line, skey, app in rules:
+            left = re.sub(r"\\([/.:?\-])", r"\1", line.split(" url ", 1)[0])
+            left = re.sub(r"^\^?https\??:?//", "", left).replace("|", "\\|")
+            act = rule_action(line)
+            what = ACTION_TEXT.get(act, act)
+            if skey:
+                what += f"（`{script_output_name(skey)}`）"
+            w(f"| {app} | {rule_note(line, label) or '—'} | {what} | `{left[:70]}` |")
+        w("")
+
+    # ---- MitM
+    w("## 3. MitM（主机名）")
+    w("")
+    w("### 3.1 作用：会被解密的域名（用来改写广告）")
+    w("")
+    w("| 域名 | App | 来自 |")
+    w("|---|---|---|")
+    for src in SOURCES["rewrites"]:
+        for h in parse_rewrite(src)[1]:
+            w(f"| `{h}` | {host_app(src['id'], h) or '—'} | {src['tag']} |")
+    w("")
+    w(f"### 3.2 排除：永远不解密的域名（{len(DENY_ITEMS)} 项）")
+    w("")
+    w("即使某个重写夹带了这些域名，QX 也不会解密它们。")
+    w("")
+    group = None
+    for pat, name, g in DENY_ITEMS:
+        if g != group:
+            w("")
+            w(f"**{g}**")
+            w("")
+            w("| 域名 | App / 服务 |")
+            w("|---|---|")
+            group = g
+        w(f"| `{pat}` | {name} |")
+    w("")
+    out = ROOT / "docs"
+    if not out.exists():
+        out.mkdir()
+    (out / "RULES.md").write_text("\n".join(W) + "\n", encoding="utf-8")
+    print(f"  docs/RULES.md  {len(W)} 行")
 
 
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("bump", "sync", "audit", "assets"):
+    for name in ("bump", "sync", "audit", "assets", "docs"):
         sub.add_parser(name)
     p = sub.add_parser("rewrites")
     p.add_argument("--asset-ref", required=True)
@@ -452,7 +755,7 @@ def main():
     p.add_argument("--asset-ref", required=True)
     p.add_argument("--rewrite-ref", required=True)
     args = ap.parse_args()
-    {"bump": cmd_bump, "sync": cmd_sync, "audit": cmd_audit, "assets": cmd_assets,
+    {"bump": cmd_bump, "sync": cmd_sync, "audit": cmd_audit, "assets": cmd_assets, "docs": cmd_docs,
      "rewrites": cmd_rewrites, "profile": cmd_profile}[args.cmd](args)
 
 

@@ -25,11 +25,15 @@ function isAdItem(item) {
 }
 
 function handle(body) {
-  // 开屏广告：展示时长和等待超时都置 0
+  // 开屏广告：展示时长和等待超时都置 0。
+  // 注意：替换结果里没有反斜杠，这与上游 zhihu.ads.js 和 zhihu_openads.js 的输出逐字节一致。
+  // 响应里这两个字段位于嵌套的 JSON 字符串中（写作 \"key\":N），去掉反斜杠后外层 JSON 不再合法，
+  // 客户端解析失败，就不会展示开屏广告。我没有真实响应可验证哪种写法更好，所以保持与上游一致。
+  // 如果开屏广告又出现了，抓一份 launch_v2 的响应来调整这里。
   if (/commercial_api\/(.*launch_v2|real_time_launch)/.test(url)) {
     return body
-      .replace(/img_play_duration\\":\d+/g, 'img_play_duration\\":0')
-      .replace(/launch_timeout\\":\d+/g, 'launch_timeout\\":0');
+      .replace(/img_play_duration\\":\d+/g, 'img_play_duration":0')
+      .replace(/launch_timeout\\":\d+/g, 'launch_timeout":0');
   }
 
   // 问题回答列表：让客户端识别不到 ad_info 字段

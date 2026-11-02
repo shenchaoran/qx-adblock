@@ -1,5 +1,5 @@
 {
-  "_doc": "净化策略。scripts：上游脚本的处理决定（keep 原样收录 / replace 换成 custom/ 下的可读版 / drop 删除引用它的所有规则）。构建时遇到未登记的脚本会直接报错，必须先审计再登记。rewrites：各重写的额外裁剪；keep_if_matches 是 App 白名单（键为 App 名，值为匹配规则文本的正则，匹配前会去掉规则里的反斜杠；不命中任何一项的规则整条丢弃）。",
+  "_doc": "净化策略。scripts：上游脚本的处理决定（keep 原样收录 / replace 换成 custom/ 下的可读版 / drop 删除引用它的所有规则）。构建时遇到未登记的脚本会直接报错，必须先审计再登记。rewrites：各重写的额外裁剪；app 是该文件对应的 App 名；host_apps 是 hostname 到 App 的对照；keep_if_matches 是 App 白名单（键为 App 名，值为匹配规则文本的正则，匹配前会去掉规则里的反斜杠；不命中任何一项的规则整条丢弃）。rule_notes：给规则补一句作用说明（match 是规则左半部分去掉反斜杠后的子串，按顺序取第一个命中的）。",
 
   "scripts": {
     "gh:ddgksf2013/Scripts:amdc.js": {"action": "keep", "note": "可读；只读 User-Agent，用于让阿里系 App 的 httpdns 调度失效"},
@@ -10,6 +10,57 @@
     "site:scripts/redbook.ads.js": {"action": "replace", "with": "xiaohongshu.ads.js", "note": "商业混淆器加密，内置 $task.fetch/$httpClient 网络库并读写持久化存储；改用自写可读版"},
 
     "gh:ddgksf2013/Scripts:amap.js": {"action": "drop", "note": "混淆，无法审计；高德只保留声明式的 reject 规则"}
+  },
+
+  "rule_notes": [
+    {"match": "res.xiaojukeji.com/resapi/activity/mget",                    "note": "活动弹窗"},
+    {"match": "res.xiaojukeji.com/resapi/activity/get",                     "note": "开屏广告预加载与通知"},
+    {"match": "freshippo.com",                                              "note": "首页弹窗与开屏"},
+    {"match": "helper.2bulu.com",                                           "note": "开屏、弹窗、推广任务"},
+    {"match": "mapi.mafengwo.cn/ad/get_launch_ad_list",                     "note": "开屏广告"},
+    {"match": "homefront.qunar.com/front/splash/ad",                        "note": "开屏广告"},
+    {"match": "client.qunar.com/pitcher-proxy?qrt=p_splashAd",              "note": "开屏广告"},
+    {"match": "apiproxy.zuche.com",                                         "note": "营销投放位（返回空对象）"},
+    {"match": "ma-adx.ctrip.com",                                           "note": "广告埋点"},
+
+    {"match": "118.89.204.198",                                           "note": "拦截对广告服务器 IP 的直连访问"},
+    {"match": "103.41.167.237",                                           "note": "拦截对广告服务器 IP 的直连访问"},
+    {"match": "2402:4e00:1200:ed00:0:9089:6dac:96b6",                     "note": "拦截对广告服务器 IPv6 的直连访问"},
+    {"match": "commercial_api.*launch_v2",                                "note": "开屏广告"},
+    {"match": ".*zhihu.com/commercial_api",                               "note": "商业化接口整体拦截（广告、浮层、开屏等）"},
+    {"match": "brand/question",                                           "note": "品牌提问广告"},
+    {"match": "ad-style-service/request",                                 "note": "广告样式服务"},
+    {"match": "api.zhihu.com/next-render",                                "note": "回答页翻页去广告"},
+
+    {"match": "app.bilibili.com/x/v2/splash/show",                          "note": "开屏广告"},
+    {"match": "app.bilibili.com/x/v2/splash/list",                          "note": "开屏广告列表"},
+    {"match": "app.bilibili.com/x/v2/feed/index",                           "note": "首页推荐流去广告"},
+    {"match": "app.bilibili.com/x/resource/show/tab",                       "note": "顶栏 / 底栏标签精简"},
+    {"match": "app.bilibili.com/x/resource/top/activity",                   "note": "顶部活动入口"},
+    {"match": "app.bilibili.com/x/v2/search/square",                        "note": "搜索页热搜与推广"},
+
+    {"match": "system_service/splash_config",                               "note": "开屏广告预加载（把投放时间改到远期）"},
+    {"match": "system_service/splash",                                      "note": "开屏广告"},
+    {"match": "system_service/config",                                      "note": "启动配置（去掉商城入口、开屏图、加载图）"},
+    {"match": "search/notes/recommend_info",                                "note": "搜索结果推荐信息"},
+    {"match": "search/notes?",                                              "note": "搜索结果去广告"},
+    {"match": "note/widgets",                                               "note": "笔记详情页挂件（商品卡、活动卡）"},
+    {"match": "homefeed/categories",                                        "note": "首页频道（去掉购物、直播等商业频道）"},
+    {"match": "/homefeed?",                                                 "note": "首页信息流去广告"},
+    {"match": "/api/gslb",                                                  "note": "HTTPDNS 调度（让广告域名解析失败）"},
+    {"match": "/api/httpdns",                                               "note": "HTTPDNS 调度（让广告域名解析失败）"},
+    {"match": "(tag/)?ads",                                                 "note": "广告接口"},
+    {"match": "stateReport",                                                "note": "状态上报"},
+    {"match": "matrix_switches",                                            "note": "运营开关"},
+    {"match": "teenager/status",                                            "note": "青少年模式状态上报"},
+    {"match": "guide/home_guide",                                           "note": "首页引导弹窗"}
+  ],
+
+  "group_names": {
+    "dedao": "得到", "general": "通用（Adjust / AppsFlyer / 个推等归因与推送）", "alibaba": "阿里（统计）",
+    "bilibili": "哔哩哔哩（视频 CDN）", "google": "谷歌（更新与服务）",
+    "Firebase Cloud Messaging": "Firebase 推送（各 App 的消息推送）", "tencent": "腾讯视频",
+    "Weixin": "微信", "Strava": "Strava", "umeng": "友盟推送", "zhiboba": "直播吧"
   },
 
   "rewrites": {
@@ -26,10 +77,21 @@
       "hostname": [
         "res.xiaojukeji.com", "acs-m.freshippo.com", "homefront.qunar.com", "client.qunar.com",
         "ma-adx.ctrip.com", "apiproxy.zuche.com", "mapi.mafengwo.cn", "helper.2bulu.com"
-      ]
+      ],
+      "host_apps": {
+        "res.xiaojukeji.com": "滴滴", "acs-m.freshippo.com": "盒马", "homefront.qunar.com": "去哪儿",
+        "client.qunar.com": "去哪儿", "ma-adx.ctrip.com": "携程", "apiproxy.zuche.com": "神州租车",
+        "mapi.mafengwo.cn": "马蜂窝", "helper.2bulu.com": "两步路"
+      }
     },
     "Zhihu": {
+      "app": "知乎",
       "hostname": ["api.zhihu.com", "www.zhihu.com", "118.89.204.198", "103.41.167.237", "2402:4e00:1200:ed00:0:9089:6dac:96b6"],
+      "host_apps": {
+        "api.zhihu.com": "知乎（接口）", "www.zhihu.com": "知乎（网页接口）",
+        "118.89.204.198": "知乎（广告服务器 IP）", "103.41.167.237": "知乎（广告服务器 IP）",
+        "2402:4e00:1200:ed00:0:9089:6dac:96b6": "知乎（广告服务器 IPv6）"
+      },
       "drop_if_contains": [
         "people/self", "unlimited/go/my_card", "bazaar\\/vip_tab", "user-credit", "appview\\/v2\\/answer",
         "search\\/recommend_query", "search/hot_search", "moments_v3", "moments\\/tab_v2", "moments\\/recent",
@@ -38,10 +100,14 @@
       ]
     },
     "Bilibili": {
+      "app": "哔哩哔哩",
       "drop_if_contains": ["account\\/myinfo", "account\\/mine"]
     },
     "XiaoHongShu": {
+      "app": "小红书",
       "drop_if_contains": ["note\\/video\\/save", "note\\/live_photo\\/save", "note\\/redtube", "note\\/(tab|video)feed", "note\\/tabfeed", "note\\/videofeed", "note\\/feed\\?", "note\\/imagefeed", "search\\/hot_list", "search\\/hint", "search\\/trending", "comment\\/list"]
-    }
+    },
+    "Amap":   {"app": "高德地图"},
+    "Goofish": {"app": "闲鱼"}
   }
 }

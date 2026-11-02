@@ -1,4 +1,5 @@
-# 广告域名：来自 gh:blackmatrix7/ios_rule_script:rule/QuantumultX/AdvertisingLite/AdvertisingLite.list，共 38065 条，策略统一为 reject
+# 广告域名：广告 SDK、统计与追踪域名黑名单（blackmatrix7 精简版），对所有 App 生效，只按域名拦截、不解密
+# 来源 gh:blackmatrix7/ios_rule_script:rule/QuantumultX/AdvertisingLite/AdvertisingLite.list，共 38065 条，策略统一为 reject
 host, 00-gov.cn, reject
 host, 0024aadd.com, reject
 host, 0026645142c89aeb1.com, reject

@@ -11,6 +11,11 @@ cd "$(dirname "$0")/.."
 
 python3 tools/build.py audit >/dev/null || { python3 tools/build.py audit; echo "审计未通过，已中止"; exit 1; }
 
+# 自写脚本的离线测试（需要 node）
+if command -v node >/dev/null; then
+  node tests/zhihu.test.js >/dev/null || { node tests/zhihu.test.js; echo "知乎测试未通过，已中止"; exit 1; }
+fi
+
 # 防止把 CA 私钥提交进仓库
 if grep -rInE '^\s*(passphrase|p12)\s*=\s*\S' --exclude-dir=.git --exclude-dir=upstream . ; then
   echo "发现 passphrase / p12，已中止。私钥绝不能进仓库"; exit 1
@@ -24,6 +29,7 @@ commit_if_changed() { # $1=提交说明，其余=路径
 }
 
 python3 tools/build.py assets
+python3 tools/build.py docs
 commit_if_changed "assets: 更新脚本与分流" . ':!rewrite' ':!QuantumultX.conf'
 ASSET=$(git log -1 --format=%H -- scripts filter)
 

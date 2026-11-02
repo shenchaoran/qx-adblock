@@ -1,148 +1,164 @@
-# MitM 敏感域名清单（每行一个，支持 * 通配）
+# MitM 排除清单。格式：域名  # App 或服务名（支持 * 通配；# 之后是说明）
 #
-# 有两个作用：
+# 作用：
 # 1. 构建时：远程重写的 hostname 里命中本清单的条目会被剔除，引用这些域名的重写规则会被删除。
 # 2. 主配置：清单里的每条都会以 "-" 前缀写进 [mitm] hostname，在全局范围排除。
 #    即使以后某个重写夹带了这些域名，QX 也不会解密它们。
 #
 # 原则：账号被盗后会造成资金损失、身份泄露、设备被远程控制或通讯被接管的，一律不做 MitM。
+# 分组标题格式固定为「# ---- 分组名 ----」，build.py 用它来生成注释和 docs/RULES.md。
+
+# ---- 证书锁定（解密后 App 会直接断网，沿用原配置）----
+testflight.apple.com       # TestFlight
+*.fcbox.com                # 丰巢快递柜
+*huami.com                 # 华米 / Zepp / 小米运动
+*amemv.com                 # 抖音
+*snssdk.com                # 抖音、今日头条的 API 域名
+www.google.com             # 谷歌搜索
 
 # ---- Apple / 系统 ----
-*.apple.com
-*.icloud.com
-*.icloud.com.cn
-*.mzstatic.com
-*.apple-cloudkit.com
+*.apple.com                # Apple ID、App Store、系统服务
+*.icloud.com               # iCloud
+*.icloud.com.cn            # iCloud（中国大陆）
+*.mzstatic.com             # App Store 图片与资源
+*.apple-cloudkit.com       # CloudKit
 
 # ---- 支付 / 银行 / 信用卡 ----
-*.alipay.com
-*.alipayobjects.com
-*.alipay.cn
-*.tenpay.com
-*.unionpay.com
-*.95516.com
-*.cmbchina.com
-*.cmbimg.com
-*.icbc.com.cn
-*.ccb.com
-*.abchina.com
-*.abchina.com.cn
-*.boc.cn
-*.bankofchina.com
-*.bankcomm.com
-*.bankcomm.cn
-*.psbc.com
-*.cebbank.com
-*.cib.com.cn
-*.spdb.com.cn
-*.cmbc.com.cn
-*.hxb.com.cn
-*.pingan.com
-*.pingan.com.cn
-*.pingan.cn
-*.ecitic.com
-*.citicbank.com
-*.webank.com
-*.mybank.cn
-*.js96008.com
-*.helipay.com
-*.duxiaoman.com
-*.qjjfin.com
-*.wacaijizhang.com
-jr.jd.com
-*.jr.jd.com
-api.jr.mi.com
+*.alipay.com               # 支付宝
+*.alipayobjects.com        # 支付宝静态资源
+*.alipay.cn                # 支付宝
+*.tenpay.com               # 微信支付 / 财付通
+*.unionpay.com             # 云闪付 / 银联
+*.95516.com                # 云闪付 / 银联
+*.cmbchina.com             # 招商银行
+*.cmbimg.com               # 招商银行
+*.icbc.com.cn              # 工商银行
+*.ccb.com                  # 建设银行
+*.abchina.com              # 农业银行
+*.abchina.com.cn           # 农业银行
+*.boc.cn                   # 中国银行
+*.bankofchina.com          # 中国银行
+*.bankcomm.com             # 交通银行
+*.bankcomm.cn              # 交通银行
+*.psbc.com                 # 邮储银行
+*.cebbank.com              # 光大银行
+*.cib.com.cn               # 兴业银行
+*.spdb.com.cn              # 浦发银行
+*.cmbc.com.cn              # 民生银行
+*.hxb.com.cn               # 华夏银行
+*.pingan.com               # 平安银行 / 平安金融
+*.pingan.com.cn            # 平安银行 / 平安金融
+*.pingan.cn                # 平安
+*.ecitic.com               # 中信银行
+*.citicbank.com            # 中信银行
+*.webank.com               # 微众银行
+*.mybank.cn                # 网商银行
+*.js96008.com              # 江苏农商行
+*.helipay.com              # 合利宝支付
+*.duxiaoman.com            # 度小满金融
+*.qjjfin.com               # 钱就就
+*.wacaijizhang.com         # 挖财记账
+jr.jd.com                  # 京东金融
+*.jr.jd.com                # 京东金融
+api.jr.mi.com              # 小米金融
 
 # ---- 证券 / 基金 / 金融数据 ----
-*.futunn.com
-*.futuhk.com
-*.moomoo.com
-*.xueqiu.com
-*.10jqka.com.cn
-*.eastmoney.com
-*.1234567.com.cn
-*.chinastock.com.cn
-*.touker.com
-*.wind.com.cn
-*.hgold.cn
-*.zhaojinapp.com
-*.htsc.com.cn
-*.gtja.com
-*.citics.com
-*.longbridge.global
-*.tigerbrokers.com
+*.futunn.com               # 富途牛牛
+*.futuhk.com               # 富途
+*.moomoo.com               # moomoo
+*.xueqiu.com               # 雪球
+*.10jqka.com.cn            # 同花顺
+*.eastmoney.com            # 东方财富
+*.1234567.com.cn           # 天天基金
+*.chinastock.com.cn        # 中国银河证券
+*.touker.com               # 投客
+*.wind.com.cn              # 万得
+*.hgold.cn                 # 汇通财经
+*.zhaojinapp.com           # 招金
+*.htsc.com.cn              # 华泰证券
+*.gtja.com                 # 国泰君安
+*.citics.com               # 中信证券
+*.longbridge.global        # 长桥
+*.tigerbrokers.com         # 老虎证券
 
 # ---- 即时通讯 / 社交账号 ----
-*.weixin.qq.com
-*.wechat.com
-*.wxs.qq.com
-weixin110.qq.com
-mp.weixin.qq.com
-ptlogin2.qq.com
-*.ptlogin2.qq.com
-ssl.ptlogin2.qq.com
+*.weixin.qq.com            # 微信、公众号
+*.wechat.com               # 微信
+*.wxs.qq.com               # 微信小程序
+weixin110.qq.com           # 微信安全拦截页
+mp.weixin.qq.com           # 公众号文章
+ptlogin2.qq.com            # QQ 登录
+*.ptlogin2.qq.com          # QQ 登录
+ssl.ptlogin2.qq.com        # QQ 登录
 
 # ---- 政务 / 出行实名 / 医疗 ----
-*.gov.cn
-mobile.12306.cn
-kyfw.12306.cn
-www.12306.cn
-*.122.gov.cn
-*.csair.com
-*.xiamenair.com
-*.juneyaoair.com
-*.ceair.com
-*.airchina.com.cn
-*.umetrip.com
-*.umetrip.com.cn
-*.jk.cn
-*.91160.com
+*.gov.cn                   # 政务服务、医保、交管 12123
+mobile.12306.cn            # 12306
+kyfw.12306.cn              # 12306
+www.12306.cn               # 12306
+*.122.gov.cn               # 交管 12123
+*.csair.com                # 南方航空
+*.xiamenair.com            # 厦门航空
+*.juneyaoair.com           # 吉祥航空
+*.ceair.com                # 东方航空
+*.airchina.com.cn          # 国航
+*.umetrip.com              # 航旅纵横
+*.umetrip.com.cn           # 航旅纵横
+*.jk.cn                    # 平安好医生
+*.91160.com                # 挂号网
 
-# ---- 电商主站接口 / 外卖（携带登录态并可下单支付）----
-*.taobao.com
-*.tmall.com
-*.jd.com
-*.jdcloud.com
-*.yangkeduo.com
-*.pinduoduo.com
-*.meituan.com
-*.meituan.net
-*.dianping.com
-*.ele.me
-app.dewu.com
+# ---- 电商主站 / 外卖（同一网关承载登录态与订单）----
+*.taobao.com               # 淘宝
+*.tmall.com                # 天猫
+*.jd.com                   # 京东
+*.jdcloud.com              # 京东云
+*.yangkeduo.com            # 拼多多
+*.pinduoduo.com            # 拼多多
+*.meituan.com              # 美团、美团外卖
+*.meituan.net              # 美团图片与资源
+*.dianping.com             # 大众点评
+*.ele.me                   # 饿了么
+app.dewu.com               # 得物
 
 # ---- 邮箱 / 运营商 / 网盘 ----
-*.mail.163.com
-appconf.mail.163.com
-*.mail.qq.com
-*.mail.10086.cn
-*.10086.cn
-*.10010.com
-*.189.cn
-*.ahmobile.cn
-www.123pan.com
+*.mail.163.com             # 网易邮箱
+appconf.mail.163.com       # 网易邮箱
+*.mail.qq.com              # QQ 邮箱
+*.mail.10086.cn            # 139 邮箱
+*.10086.cn                 # 中国移动
+*.10010.com                # 中国联通
+*.189.cn                   # 中国电信、天翼云盘
+*.ahmobile.cn              # 安徽移动
+www.123pan.com             # 123 云盘
 
 # ---- 智能家居 / 摄像头 / 远程控制 / 车机 ----
-*.mi.com
-*.ys7.com
-*.lechange.cn
-*.xiaoyi.com
-*.oray.com
-*.oray.net
-*.narwaltech.com
-*.onethingpcs.com
-*.geely.com
-*.faw-vw.com
-*.gwmapp-w.com
-*.leapmotor.cn
-*.jetour.com.cn
-*.bjev.com.cn
-*.ftms.com.cn
-*.ghac.cn
-*.shouqiev.com
+*.mi.com                   # 小米商城、米家
+*.ys7.com                  # 萤石摄像头
+*.lechange.cn              # 乐橙摄像头
+*.xiaoyi.com               # 小蚁摄像头
+*.oray.com                 # 向日葵远程控制
+*.oray.net                 # 向日葵远程控制
+*.narwaltech.com           # 云鲸扫地机
+*.onethingpcs.com          # 玩客云
+*.geely.com                # 吉利汽车
+*.faw-vw.com               # 一汽大众
+*.gwmapp-w.com             # 长城汽车
+*.leapmotor.cn             # 零跑汽车
+*.jetour.com.cn            # 捷途汽车
+*.bjev.com.cn              # 北京汽车
+*.ftms.com.cn              # 广汽丰田
+*.ghac.cn                  # 广汽
+*.shouqiev.com             # 首汽约车
 
 # ---- 密码管理 / 开发者账号 ----
-*.1password.com
-*.bitwarden.com
-*.github.com
-*.githubusercontent.com
+*.1password.com            # 1Password
+*.bitwarden.com            # Bitwarden
+*.github.com               # GitHub
+*.githubusercontent.com    # GitHub
+
+# ---- 你的其他 App（本来就没有重写会解密它们，这里是预防性排除）----
+*.y.qq.com                 # QQ 音乐
+*.music.qq.com             # QQ 音乐
+*.hellobike.com            # 哈啰
+*.1hai.cn                  # 一嗨租车
+*.ehi.com.cn               # 一嗨租车

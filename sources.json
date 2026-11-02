@@ -24,7 +24,9 @@
   ],
 
   "filters": [
-    {"id": "Unbreak",         "tag": "误杀修正", "from": "gh:ddgksf2013/Filter:Unbreak.list", "policy": "direct"},
-    {"id": "AdvertisingLite", "tag": "广告域名", "from": "gh:blackmatrix7/ios_rule_script:rule/QuantumultX/AdvertisingLite/AdvertisingLite.list", "policy": "reject"}
+    {"id": "Unbreak",         "tag": "误杀修正", "from": "gh:ddgksf2013/Filter:Unbreak.list", "policy": "direct",
+     "desc": "把黑名单可能误拦的域名放行（Firebase 推送、谷歌更新、阿里统计、得到、B 站视频 CDN 等），直连"},
+    {"id": "AdvertisingLite", "tag": "广告域名", "from": "gh:blackmatrix7/ios_rule_script:rule/QuantumultX/AdvertisingLite/AdvertisingLite.list", "policy": "reject",
+     "desc": "广告 SDK、统计与追踪域名黑名单（blackmatrix7 精简版），对所有 App 生效，只按域名拦截、不解密"}
   ]
 }
