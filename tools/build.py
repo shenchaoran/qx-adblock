@@ -103,8 +103,22 @@ def read_snapshot(key):
     return p.read_text(encoding="utf-8")
 
 
+def link_mode():
+    return SOURCES.get("link_mode", "commit")
+
+
+def link_ref(ref):
+    """本仓库自己的链接指向哪里：branch 模式固定写分支名，commit 模式写传入的 commit。"""
+    return SOURCES["branch"] if link_mode() == "branch" else ref
+
+
+# 跟随分支时每天检查一次更新；固定 commit 时内容不会变，一周一次就够
+UPD = 86400 if SOURCES.get("link_mode", "commit") == "branch" else 604800
+
+
 def cdn_url(ref, path):
     repo = SOURCES["repo"]
+    ref = link_ref(ref)
     if SOURCES.get("cdn") == "raw":
         return f"https://raw.githubusercontent.com/{repo}/{ref}/{path}"
     return f"https://cdn.jsdelivr.net/gh/{repo}@{ref}/{path}"
@@ -528,16 +542,16 @@ def cmd_profile(args):
     entries = [(
         "direct",
         [f"# 重写文件附带的直连域名，共 {list_count('RewriteAllow')} 条，涉及：{list_apps('RewriteAllow')}"],
-        f"{cdn_url(a, 'filter/RewriteAllow.list')}, tag=重写附带直连, force-policy=direct, update-interval=604800, opt-parser=false, enabled=true")]
+        f"{cdn_url(a, 'filter/RewriteAllow.list')}, tag=重写附带直连, force-policy=direct, update-interval={UPD}, opt-parser=false, enabled=true")]
     for src in SOURCES["filters"]:
         entries.append((src["policy"],
                         [f"# {src['tag']}：{src.get('desc', '')}（{list_count(src['id'])} 条，{src['policy']}）"],
                         f"{cdn_url(a, 'filter/' + src['id'] + '.list')}, tag={src['tag']}, force-policy={src['policy']}, "
-                        f"update-interval=604800, opt-parser=false, enabled=true"))
+                        f"update-interval={UPD}, opt-parser=false, enabled=true"))
     entries.append((
         "reject",
         [f"# 重写文件附带的拦截域名，共 {list_count('RewriteBlock')} 条，涉及：{list_apps('RewriteBlock')}"],
-        f"{cdn_url(a, 'filter/RewriteBlock.list')}, tag=重写附带拦截, force-policy=reject, update-interval=604800, opt-parser=false, enabled=true"))
+        f"{cdn_url(a, 'filter/RewriteBlock.list')}, tag=重写附带拦截, force-policy=reject, update-interval={UPD}, opt-parser=false, enabled=true"))
     entries.sort(key=lambda e: 0 if e[0] == "direct" else 1)     # 直连类必须排在拦截类之前
     filters = []
     for _pol, comments, line in entries:
@@ -548,7 +562,7 @@ def cmd_profile(args):
         rules, hosts, _, _st = parse_rewrite(s)
         apps = "、".join(dict.fromkeys(x for _, _, _, x in rules if x))
         rewrites.append(f"# {s['tag']}：{apps}；{len(rules)} 条规则，解密 {len(hosts)} 个域名")
-        rewrites.append(f"{cdn_url(r, 'rewrite/' + s['id'] + '.conf')}, tag={s['tag']}, update-interval=604800, opt-parser=false, enabled=true")
+        rewrites.append(f"{cdn_url(r, 'rewrite/' + s['id'] + '.conf')}, tag={s['tag']}, update-interval={UPD}, opt-parser=false, enabled=true")
 
     deny = []
     for p in DENY:
@@ -557,7 +571,14 @@ def cmd_profile(args):
             deny.append("-" + p[2:])
     mitm = ", ".join(dict.fromkeys(deny))
     tpl = (ROOT / "profile.template.conf").read_text(encoding="utf-8")
-    conf = (tpl.replace("{{REPO}}", SOURCES["repo"]).replace("{{ASSET_REF}}", a).replace("{{REWRITE_REF}}", r)
+    if link_mode() == "branch":
+        build_line = f"# 构建：链接跟随分支 {SOURCES['branch']}（推送到该分支即生效；jsDelivr 对分支有最长约 12 小时缓存）"
+        pin_line = "# 所有远程资源都指向本仓库自己的分支；上游作者的改动不会进来，只有你推送的才会。"
+    else:
+        build_line = f"# 构建：资源 @{a}，重写 @{r}"
+        pin_line = "# 所有远程资源都指向本仓库的某个固定 commit，作者以后改什么都影响不到这里。"
+    conf = (tpl.replace("{{BUILD_LINE}}", build_line).replace("{{PIN_LINE}}", pin_line)
+            .replace("{{REPO}}", SOURCES["repo"]).replace("{{ASSET_REF}}", a).replace("{{REWRITE_REF}}", r)
             .replace("{{FILTER_REMOTE}}", "\n".join(filters)).replace("{{REWRITE_REMOTE}}", "\n".join(rewrites))
             .replace("{{MITM_COMMENT}}", mitm_comment()).replace("{{MITM_HOSTNAME}}", mitm))
     (ROOT / "QuantumultX.conf").write_text(conf, encoding="utf-8")

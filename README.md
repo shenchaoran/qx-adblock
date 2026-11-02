@@ -1,6 +1,6 @@
 # qx-adblock
 
-只用来去广告的 Quantumult X 配置。仓库里的远程资源全部固定到某个 commit，并收录在本仓库内，上游作者以后改什么都影响不到你。
+只用来去广告的 Quantumult X 配置。所有上游资源都收录在本仓库内（`upstream/` 为快照），QX 加载的链接全部指向本仓库自己的 `main` 分支，所以上游作者以后改什么都影响不到你，只有你推送的才会生效。
 
 - 没有节点，不走代理，未命中规则的流量全部直连
 - 不用资源解析器，不用 BoxJs，没有定时任务
@@ -25,7 +25,7 @@
 ```
 QuantumultX.conf        主配置（生成，导入 QX 用这个）
 profile.template.conf   主配置模板
-sources.json            上游来源及锁定的 commit
+sources.json            上游来源及锁定的 commit；link_mode 决定本仓库链接跟随分支还是固定 commit
 policy/
   policy.json           每个上游脚本的处理决定（收录 / 替换 / 删除）及理由，各重写的裁剪规则
   mitm-deny.txt         敏感域名清单：构建时从重写里剔除，主配置里用 "-" 全局排除
@@ -37,20 +37,31 @@ scripts/  filter/  rewrite/   构建产物，QX 实际加载的就是这些
 tools/
   build.py              bump / sync / audit / assets / rewrites / profile
   audit.py              脚本静态审计（混淆、外发请求、读凭证、持久化存储）
-  release.sh            生成产物，并按三段 commit 锁定链接
+  release.sh            生成产物并提交（branch 模式一次提交；commit 模式分三段）
 ```
 
-## 链接是怎么锁定的
+## 链接怎么指向本仓库
 
-一个文件不能引用包含它自己的 commit，所以发布分三段提交：
+`sources.json` 里的 `link_mode` 决定：
 
-1. **assets**：`scripts/`、`filter/`（以及工具、策略、上游快照）
-2. **rewrite**：`rewrite/*.conf`，里面的脚本链接指向第 1 段的 commit
-3. **profile**：`QuantumultX.conf`，里面的重写链接指向第 2 段，分流链接指向第 1 段
+| 模式 | 链接形式 | 特点 |
+|---|---|---|
+| `branch`（当前） | `https://cdn.jsdelivr.net/gh/shenchaoran/qx-adblock@main/路径` | 推送到 `main` 就生效；一次生成、一次提交；可以随意 rebase / amend |
+| `commit` | `…@<40 位 commit>/路径` | 内容不可变，防止仓库被篡改；需分三段提交，推送后不能改历史 |
 
-链接格式是 `https://cdn.jsdelivr.net/gh/shenchaoran/qx-adblock@<commit>/路径`。commit 号对应的内容不可变。想改用 GitHub raw，把 `sources.json` 里的 `cdn` 改成 `raw`，重新发布即可。国内不走代理时，raw.githubusercontent.com 经常连不上，所以默认用 jsDelivr。
+仓库是你自己的，所以默认用 `branch`。两种模式的差别只在“仓库被别人改了会不会影响到你”：
 
-> **推送时不要 rebase、squash 或 amend**，否则 commit 号会变，所有链接都会失效。
+- 上游（墨鱼、blackmatrix7）的改动**不会**进来，因为快照在 `upstream/` 里，只有你运行 `sync` 再推送才会更新。
+- 如果你的 GitHub 账号被盗，攻击者改了 `scripts/` 里的脚本，手机会在下次更新（最长一天）时拉到恶意脚本，而这些脚本跑在已解密的流量上。开启两步验证和 SSH 密钥就能把这个风险压得很低；要彻底避免就切回 `commit` 模式。
+
+**更新延迟**：`update-interval` 是 86400 秒（每天检查一次）。jsDelivr 对分支链接有最长约 12 小时的缓存，所以推送后可能要等半天才能拉到。想立刻生效：
+
+```bash
+curl https://purge.jsdelivr.net/gh/shenchaoran/qx-adblock@main/QuantumultX.conf
+# 重写、脚本、分流列表同理，把路径换成对应文件；然后在 QX 里手动更新资源
+```
+
+GitHub raw 在不走代理时经常连不上，所以默认用 jsDelivr；想换，把 `sources.json` 里的 `cdn` 改成 `raw`。
 
 ## 为什么要选「规则分流」而不是「全部直连」
 

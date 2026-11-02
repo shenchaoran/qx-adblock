@@ -1,9 +1,10 @@
 {
-  "_doc": "上游来源清单。gh: 源固定到 pins 里的 commit；site: 源（ddgksf2013.top）不是 git 仓库，无法锁定 commit，以 upstream/ 下的快照和 LOCK.json 里的 sha256 作为锁定版本。改 pins 后运行 tools/build.py sync 拉取，再用 git diff upstream/ 审查变化。",
+  "_doc": "上游来源清单。link_mode：branch = 本仓库自己的链接跟随 branch 分支（仓库可信，改了推送即生效）；commit = 链接固定到具体 commit。gh: 源固定到 pins 里的 commit；site: 源（ddgksf2013.top）不是 git 仓库，无法锁定 commit，以 upstream/ 下的快照和 LOCK.json 里的 sha256 作为锁定版本。改 pins 后运行 tools/build.py sync 拉取，再用 git diff upstream/ 审查变化。",
 
   "repo": "shenchaoran/qx-adblock",
   "branch": "main",
   "cdn": "jsdelivr",
+  "link_mode": "branch",
   "site_base": "https://ddgksf2013.top/",
   "site_user_agent": "Quantumult%20X/1.5.5 (iPhone; iOS 18.0)",
 
