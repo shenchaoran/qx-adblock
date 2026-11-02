@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.DS_Store
+# 本地带证书的配置，绝不提交
+*.local.conf
+*.p12

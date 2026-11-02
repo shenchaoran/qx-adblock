@@ -1,0 +1,30 @@
+{
+  "_doc": "上游来源清单。gh: 源固定到 pins 里的 commit；site: 源（ddgksf2013.top）不是 git 仓库，无法锁定 commit，以 upstream/ 下的快照和 LOCK.json 里的 sha256 作为锁定版本。改 pins 后运行 tools/build.py sync 拉取，再用 git diff upstream/ 审查变化。",
+
+  "repo": "shenchaoran/qx-adblock",
+  "branch": "main",
+  "cdn": "jsdelivr",
+  "site_base": "https://ddgksf2013.top/",
+  "site_user_agent": "Quantumult%20X/1.5.5 (iPhone; iOS 18.0)",
+
+  "pins": {
+    "ddgksf2013/Rewrite": {"branch": "master", "commit": "dc3ea2c1fb2db870676b26da24006083eb1d44d3"},
+    "ddgksf2013/Scripts": {"branch": "master", "commit": "0cddbb6bc31344315afba773ebb4e7ce29f7fd8f"},
+    "ddgksf2013/Filter":  {"branch": "master", "commit": "2a8984cbe694572e530bc240f26ca58d602366c9"},
+    "blackmatrix7/ios_rule_script": {"branch": "master", "commit": "0b6897dc17e0c513d25449c935a9694818e32f0c"}
+  },
+
+  "rewrites": [
+    {"id": "StartUpAds",  "tag": "去开屏（滴滴/盒马/去哪儿/携程/神州/马蜂窝/两步路）", "from": "site:rewrite/StartUpAds.conf"},
+    {"id": "Zhihu",       "tag": "知乎",         "from": "site:scripts/zhihu.ads.js", "embedded": true},
+    {"id": "Bilibili",    "tag": "哔哩哔哩",     "from": "site:rewrite/BiliBiliAdsLite.conf"},
+    {"id": "XiaoHongShu", "tag": "小红书",       "from": "site:rewrite/XiaoHongShuAds.conf"},
+    {"id": "Amap",        "tag": "高德地图",     "from": "gh:ddgksf2013/Rewrite:AdBlock/AmapAds.conf"},
+    {"id": "Goofish",     "tag": "闲鱼",         "from": "gh:ddgksf2013/Rewrite:AdBlock/GoofishAds.conf"}
+  ],
+
+  "filters": [
+    {"id": "Unbreak",         "tag": "误杀修正", "from": "gh:ddgksf2013/Filter:Unbreak.list", "policy": "direct"},
+    {"id": "AdvertisingLite", "tag": "广告域名", "from": "gh:blackmatrix7/ios_rule_script:rule/QuantumultX/AdvertisingLite/AdvertisingLite.list", "policy": "reject"}
+  ]
+}

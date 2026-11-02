@@ -1,0 +1,2 @@
+# 重写作者要求拦截的域名（从重写文件中提取）
+host-suffix, iyes.youku.com, reject

@@ -1,0 +1,148 @@
+# MitM 敏感域名清单（每行一个，支持 * 通配）
+#
+# 有两个作用：
+# 1. 构建时：远程重写的 hostname 里命中本清单的条目会被剔除，引用这些域名的重写规则会被删除。
+# 2. 主配置：清单里的每条都会以 "-" 前缀写进 [mitm] hostname，在全局范围排除。
+#    即使以后某个重写夹带了这些域名，QX 也不会解密它们。
+#
+# 原则：账号被盗后会造成资金损失、身份泄露、设备被远程控制或通讯被接管的，一律不做 MitM。
+
+# ---- Apple / 系统 ----
+*.apple.com
+*.icloud.com
+*.icloud.com.cn
+*.mzstatic.com
+*.apple-cloudkit.com
+
+# ---- 支付 / 银行 / 信用卡 ----
+*.alipay.com
+*.alipayobjects.com
+*.alipay.cn
+*.tenpay.com
+*.unionpay.com
+*.95516.com
+*.cmbchina.com
+*.cmbimg.com
+*.icbc.com.cn
+*.ccb.com
+*.abchina.com
+*.abchina.com.cn
+*.boc.cn
+*.bankofchina.com
+*.bankcomm.com
+*.bankcomm.cn
+*.psbc.com
+*.cebbank.com
+*.cib.com.cn
+*.spdb.com.cn
+*.cmbc.com.cn
+*.hxb.com.cn
+*.pingan.com
+*.pingan.com.cn
+*.pingan.cn
+*.ecitic.com
+*.citicbank.com
+*.webank.com
+*.mybank.cn
+*.js96008.com
+*.helipay.com
+*.duxiaoman.com
+*.qjjfin.com
+*.wacaijizhang.com
+jr.jd.com
+*.jr.jd.com
+api.jr.mi.com
+
+# ---- 证券 / 基金 / 金融数据 ----
+*.futunn.com
+*.futuhk.com
+*.moomoo.com
+*.xueqiu.com
+*.10jqka.com.cn
+*.eastmoney.com
+*.1234567.com.cn
+*.chinastock.com.cn
+*.touker.com
+*.wind.com.cn
+*.hgold.cn
+*.zhaojinapp.com
+*.htsc.com.cn
+*.gtja.com
+*.citics.com
+*.longbridge.global
+*.tigerbrokers.com
+
+# ---- 即时通讯 / 社交账号 ----
+*.weixin.qq.com
+*.wechat.com
+*.wxs.qq.com
+weixin110.qq.com
+mp.weixin.qq.com
+ptlogin2.qq.com
+*.ptlogin2.qq.com
+ssl.ptlogin2.qq.com
+
+# ---- 政务 / 出行实名 / 医疗 ----
+*.gov.cn
+mobile.12306.cn
+kyfw.12306.cn
+www.12306.cn
+*.122.gov.cn
+*.csair.com
+*.xiamenair.com
+*.juneyaoair.com
+*.ceair.com
+*.airchina.com.cn
+*.umetrip.com
+*.umetrip.com.cn
+*.jk.cn
+*.91160.com
+
+# ---- 电商主站接口 / 外卖（携带登录态并可下单支付）----
+*.taobao.com
+*.tmall.com
+*.jd.com
+*.jdcloud.com
+*.yangkeduo.com
+*.pinduoduo.com
+*.meituan.com
+*.meituan.net
+*.dianping.com
+*.ele.me
+app.dewu.com
+
+# ---- 邮箱 / 运营商 / 网盘 ----
+*.mail.163.com
+appconf.mail.163.com
+*.mail.qq.com
+*.mail.10086.cn
+*.10086.cn
+*.10010.com
+*.189.cn
+*.ahmobile.cn
+www.123pan.com
+
+# ---- 智能家居 / 摄像头 / 远程控制 / 车机 ----
+*.mi.com
+*.ys7.com
+*.lechange.cn
+*.xiaoyi.com
+*.oray.com
+*.oray.net
+*.narwaltech.com
+*.onethingpcs.com
+*.geely.com
+*.faw-vw.com
+*.gwmapp-w.com
+*.leapmotor.cn
+*.jetour.com.cn
+*.bjev.com.cn
+*.ftms.com.cn
+*.ghac.cn
+*.shouqiev.com
+
+# ---- 密码管理 / 开发者账号 ----
+*.1password.com
+*.bitwarden.com
+*.github.com
+*.githubusercontent.com

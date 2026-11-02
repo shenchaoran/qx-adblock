@@ -1,0 +1,62 @@
+{
+  "gh:blackmatrix7/ios_rule_script:rule/QuantumultX/AdvertisingLite/AdvertisingLite.list": {
+    "bytes": 1486832,
+    "sha256": "566865dfe8f72c1145567c05d0a72ab8111443f4cddc9a8d636e7cfa756b8e10",
+    "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/0b6897dc17e0c513d25449c935a9694818e32f0c/rule/QuantumultX/AdvertisingLite/AdvertisingLite.list"
+  },
+  "gh:ddgksf2013/Filter:Unbreak.list": {
+    "bytes": 1246,
+    "sha256": "200f6b9fb07f8570ac27b62f6b0cfbfc7b131785820dffd39a30076af0ebe13e",
+    "url": "https://raw.githubusercontent.com/ddgksf2013/Filter/2a8984cbe694572e530bc240f26ca58d602366c9/Unbreak.list"
+  },
+  "gh:ddgksf2013/Rewrite:AdBlock/AmapAds.conf": {
+    "bytes": 3924,
+    "sha256": "d0c1caf909e3e9151ec890eb31bc14dc28b34c49d6c8a1ef42c147cd949564b3",
+    "url": "https://raw.githubusercontent.com/ddgksf2013/Rewrite/dc3ea2c1fb2db870676b26da24006083eb1d44d3/AdBlock/AmapAds.conf"
+  },
+  "gh:ddgksf2013/Rewrite:AdBlock/GoofishAds.conf": {
+    "bytes": 3423,
+    "sha256": "6112a98d133ccd602b6906e05c811f402ee1902a15b56397db9ebdde8d4321d1",
+    "url": "https://raw.githubusercontent.com/ddgksf2013/Rewrite/dc3ea2c1fb2db870676b26da24006083eb1d44d3/AdBlock/GoofishAds.conf"
+  },
+  "gh:ddgksf2013/Scripts:amdc.js": {
+    "bytes": 633,
+    "sha256": "8217f2150f8d12ae04d2c49b5da0a838e83f4de68b34df71c2da16cc1267898f",
+    "url": "https://raw.githubusercontent.com/ddgksf2013/Scripts/0cddbb6bc31344315afba773ebb4e7ce29f7fd8f/amdc.js"
+  },
+  "gh:ddgksf2013/Scripts:dict.js": {
+    "bytes": 19,
+    "sha256": "cb80f9bcc73f21bb2a61650db6c203faf40373d97b99c752a07c113cd2c635a1",
+    "url": "https://raw.githubusercontent.com/ddgksf2013/Scripts/0cddbb6bc31344315afba773ebb4e7ce29f7fd8f/dict.js"
+  },
+  "site:rewrite/BiliBiliAdsLite.conf": {
+    "bytes": 1613,
+    "sha256": "36fe0263f482d8df3a49c367eeedceaafb163022f394bed127f13dd319ec9bf9",
+    "url": "https://ddgksf2013.top/rewrite/BiliBiliAdsLite.conf"
+  },
+  "site:rewrite/StartUpAds.conf": {
+    "bytes": 61746,
+    "sha256": "9a3443554fe38d94c1b65d648c89f408c87574c674d4a7f4550c758d5d75639b",
+    "url": "https://ddgksf2013.top/rewrite/StartUpAds.conf"
+  },
+  "site:rewrite/XiaoHongShuAds.conf": {
+    "bytes": 3980,
+    "sha256": "46c96fb5b9b640d2b51a0b6562b91237116c523bdca8ff3b17318c30799ab19e",
+    "url": "https://ddgksf2013.top/rewrite/XiaoHongShuAds.conf"
+  },
+  "site:scripts/bilibili.ads.js": {
+    "bytes": 6901,
+    "sha256": "07a0bef903e35fab684410c72f729511e9b173b0700bb0efe7eb99b151c5afc1",
+    "url": "https://ddgksf2013.top/scripts/bilibili.ads.js"
+  },
+  "site:scripts/redbook.ads.js": {
+    "bytes": 25062,
+    "sha256": "f75ed15254d4bd23454fd0019cf340b581ad60cf8bb2c355e09e0e32a98fc74d",
+    "url": "https://ddgksf2013.top/scripts/redbook.ads.js"
+  },
+  "site:scripts/zhihu.ads.js": {
+    "bytes": 25974,
+    "sha256": "2406f0ed66b91415a46efb2b9c8d7b840d3f721310cf102f1f43840c783262da",
+    "url": "https://ddgksf2013.top/scripts/zhihu.ads.js"
+  }
+}

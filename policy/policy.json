@@ -1,0 +1,47 @@
+{
+  "_doc": "净化策略。scripts：上游脚本的处理决定（keep 原样收录 / replace 换成 custom/ 下的可读版 / drop 删除引用它的所有规则）。构建时遇到未登记的脚本会直接报错，必须先审计再登记。rewrites：各重写的额外裁剪；keep_if_matches 是 App 白名单（键为 App 名，值为匹配规则文本的正则，匹配前会去掉规则里的反斜杠；不命中任何一项的规则整条丢弃）。",
+
+  "scripts": {
+    "gh:ddgksf2013/Scripts:amdc.js": {"action": "keep", "note": "可读；只读 User-Agent，用于让阿里系 App 的 httpdns 调度失效"},
+    "gh:ddgksf2013/Scripts:dict.js": {"action": "keep", "note": "可读；返回空对象 {}"},
+    "site:scripts/bilibili.ads.js":  {"action": "keep", "note": "可读；只改响应体（伪装大会员的 myinfo/mine 规则已删除）"},
+
+    "site:scripts/zhihu.ads.js":   {"action": "replace", "with": "zhihu.ads.js",       "note": "商业混淆器加密；解码后发现含伪装会员、伪造盐值、注入 TG 链接，改用自写可读版"},
+    "site:scripts/redbook.ads.js": {"action": "replace", "with": "xiaohongshu.ads.js", "note": "商业混淆器加密，内置 $task.fetch/$httpClient 网络库并读写持久化存储；改用自写可读版"},
+
+    "gh:ddgksf2013/Scripts:amap.js": {"action": "drop", "note": "混淆，无法审计；高德只保留声明式的 reject 规则"}
+  },
+
+  "rewrites": {
+    "StartUpAds": {
+      "keep_if_matches": {
+        "滴滴":     "res\\.xiaojukeji\\.com",
+        "盒马":     "acs-m\\.freshippo\\.com",
+        "去哪儿":   "(homefront|client)\\.qunar\\.com",
+        "携程":     "ma-adx\\.ctrip\\.com",
+        "神州租车": "apiproxy\\.zuche\\.com",
+        "马蜂窝":   "mapi\\.mafengwo\\.cn",
+        "两步路":   "helper\\.2bulu\\.com"
+      },
+      "hostname": [
+        "res.xiaojukeji.com", "acs-m.freshippo.com", "homefront.qunar.com", "client.qunar.com",
+        "ma-adx.ctrip.com", "apiproxy.zuche.com", "mapi.mafengwo.cn", "helper.2bulu.com"
+      ]
+    },
+    "Zhihu": {
+      "hostname": ["api.zhihu.com", "www.zhihu.com", "118.89.204.198", "103.41.167.237", "2402:4e00:1200:ed00:0:9089:6dac:96b6"],
+      "drop_if_contains": [
+        "people/self", "unlimited/go/my_card", "bazaar\\/vip_tab", "user-credit", "appview\\/v2\\/answer",
+        "search\\/recommend_query", "search/hot_search", "moments_v3", "moments\\/tab_v2", "moments\\/recent",
+        "notifications\\/v\\d\\/count", "platforms\\/ios\\/config", "revisit\\/current_reading", "revisit\\/tag_config",
+        "profile\\/cards", "zhmore"
+      ]
+    },
+    "Bilibili": {
+      "drop_if_contains": ["account\\/myinfo", "account\\/mine"]
+    },
+    "XiaoHongShu": {
+      "drop_if_contains": ["note\\/video\\/save", "note\\/live_photo\\/save", "note\\/redtube", "note\\/(tab|video)feed", "note\\/tabfeed", "note\\/videofeed", "note\\/feed\\?", "note\\/imagefeed", "search\\/hot_list", "search\\/hint", "search\\/trending", "comment\\/list"]
+    }
+  }
+}
